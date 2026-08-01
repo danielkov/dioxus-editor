@@ -6,6 +6,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
+  workers: 4,
   timeout: 60_000,
   expect: { timeout: 5_000 },
   retries: process.env.CI ? 2 : 0,

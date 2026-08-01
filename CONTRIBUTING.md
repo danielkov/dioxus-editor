@@ -13,8 +13,8 @@ mise install
 mise run setup
 ```
 
-`mise.toml` pins Rust, Node.js, and the Dioxus CLI to versions compatible with
-the checked-out editor branch.
+`mise.toml` pins Rust, Node.js, FFmpeg, and the Dioxus CLI to versions
+compatible with the checked-out editor branch.
 
 ## Commands
 
@@ -26,6 +26,7 @@ mise run fmt        # rustfmt check
 mise run lint       # Clippy
 mise run docs       # rustdoc with warnings denied
 mise run serve      # browser fixture on http://127.0.0.1:18083
+mise run demo:gif   # regenerate docs/editor-demo.gif
 mise run check:rust # every Rust release check
 mise run check      # every Rust and browser release check
 ```

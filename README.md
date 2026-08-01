@@ -4,6 +4,8 @@ A pluggable rich-text editor for Dioxus applications with a transaction-based
 document model, Markdown input/output, decorator rendering, history, keyboard
 commands, and a contenteditable Dioxus view.
 
+![dioxus-editor kitchen sink demo](docs/editor-demo.gif)
+
 The crate exposes CSS class names but does **not** ship CSS; applications own
 all editor styling.
 

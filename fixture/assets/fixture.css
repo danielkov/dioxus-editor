@@ -87,10 +87,14 @@ h1 {
   padding-left: 24px;
 }
 
-.e-tB { font-weight: 700; }
-.e-tI { font-style: italic; }
-.e-tS { text-decoration: line-through; }
-.e-tC {
+.e-tB,
+.e-b { font-weight: 700; }
+.e-tI,
+.e-i { font-style: italic; }
+.e-tS,
+.e-s { text-decoration: line-through; }
+.e-tC,
+.e-c {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   background: #f0f0f0;
   border-radius: 3px;
