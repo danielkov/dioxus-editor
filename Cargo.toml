@@ -1,0 +1,52 @@
+[package]
+name = "dioxus-editor"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.88"
+description = "A pluggable rich-text editor for Dioxus"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/danielkov/dioxus-editor"
+homepage = "https://github.com/danielkov/dioxus-editor"
+readme = "README.md"
+keywords = ["dioxus", "editor", "rich-text", "markdown", "wasm"]
+categories = ["gui", "text-editors", "wasm"]
+exclude = ["fixture/**", "e2e/**", ".github/**"]
+publish = false
+
+[workspace]
+members = ["fixture"]
+resolver = "2"
+
+[workspace.dependencies]
+dioxus = { version = ">=0.7.10, <0.8", default-features = false, features = ["lib"] }
+
+[dependencies]
+dioxus = { workspace = true }
+pulldown-cmark = "0.13"
+web-sys = { version = "0.3", features = [
+    "ClipboardEvent",
+    "DataTransfer",
+    "Document",
+    "DomRect",
+    "DomTokenList",
+    "DragEvent",
+    "Element",
+    "Event",
+    "EventTarget",
+    "FileList",
+    "HtmlElement",
+    "InputEvent",
+    "Location",
+    "Node",
+    "NodeList",
+    "Selection",
+    "Window",
+    "CssStyleDeclaration",
+    "console",
+] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+dioxus = { workspace = true }

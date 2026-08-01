@@ -1,0 +1,17 @@
+[package]
+name = "dioxus-editor-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "dioxus-editor-fixture"
+path = "src/main.rs"
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+
+[dependencies]
+dioxus = { workspace = true, features = ["launch"] }
+dioxus-editor = { path = ".." }
