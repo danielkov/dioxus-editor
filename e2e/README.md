@@ -1,16 +1,15 @@
 # Browser tests
 
-Playwright drives the Dioxus fixture through real keyboard and browser input
-events. The fixture exposes labeled, read-only model and selection dumps for
-structural assertions.
+The Playwright suite drives the real Dioxus fixture in Chromium.
+
+From the repository root:
 
 ```sh
-cd e2e
-npm ci
-npx playwright install chromium
-FIXTURE_PORT=18083 npm test
+mise install
+mise run setup
+mise run test:e2e
 ```
 
-`playwright.config.ts` starts `../fixture` with `dx serve`. Set
-`SKIP_WEBSERVER=1` only when using an already-running fixture locally.
-Failures retain a Playwright trace; CI also produces an HTML report.
+`playwright.config.ts` starts the fixture with the branch-pinned Dioxus CLI.
+Set `SKIP_WEBSERVER=1` to target an already-running fixture and
+`FIXTURE_PORT` to override port `18083`.

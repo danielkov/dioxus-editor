@@ -67,7 +67,7 @@ impl Sim {
             let mut buf = [0u8; 4];
             let s1 = ch.encode_utf8(&mut buf);
             let Some(tr) = insert_text(&self.state, s1) else {
-                panic!("insert_text returned None for {:?}", s1);
+                panic!("insert_text returned None for {s1:?}");
             };
             self.apply(tr);
         }
@@ -928,8 +928,7 @@ fn inline_shortcut_italic() {
         parts
             .iter()
             .any(|(t, f)| t == "there" && *f == FormatBits::ITALIC),
-        "parts = {:?}",
-        parts
+        "parts = {parts:?}"
     );
 }
 
@@ -942,8 +941,7 @@ fn inline_shortcut_code() {
         parts
             .iter()
             .any(|(t, f)| t == "fn" && *f == FormatBits::CODE),
-        "parts = {:?}",
-        parts
+        "parts = {parts:?}"
     );
 }
 
@@ -956,8 +954,7 @@ fn inline_shortcut_strike() {
         parts
             .iter()
             .any(|(t, f)| t == "b" && *f == FormatBits::STRIKE),
-        "parts = {:?}",
-        parts
+        "parts = {parts:?}"
     );
 }
 

@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:debug": "PWDEBUG=1 playwright test",
-    "install-browsers": "playwright install chromium"
+    "test": "mise exec -- playwright test",
+    "test:headed": "mise exec -- playwright test --headed",
+    "test:debug": "mise exec -- playwright test --debug",
+    "install-browsers": "mise exec -- playwright install chromium"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0"

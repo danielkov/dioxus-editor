@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = Number(process.env.FIXTURE_PORT ?? 8081);
+const PORT = Number(process.env.FIXTURE_PORT ?? 18083);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
@@ -26,7 +26,7 @@ export default defineConfig({
   webServer: process.env.SKIP_WEBSERVER
     ? undefined
     : {
-        command: `dx serve --web --addr 127.0.0.1 --port ${PORT} --open false --interactive false --watch false`,
+        command: `mise exec -- dx serve --web --addr 127.0.0.1 --port ${PORT} --open false --interactive false --watch false`,
         cwd: "../fixture",
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,
