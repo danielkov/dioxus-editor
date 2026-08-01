@@ -909,7 +909,7 @@ fn scan_html_decorators(text: &str, reader: &HtmlTagReader) -> Option<Vec<NodeSp
         };
         // Handle the optional close tag `</Name>` immediately after.
         let mut consumed_end = k + 1;
-        let close_tag = format!("</{}>", name);
+        let close_tag = format!("</{name}>");
         if text[consumed_end..].starts_with(&close_tag) {
             consumed_end += close_tag.len();
         }

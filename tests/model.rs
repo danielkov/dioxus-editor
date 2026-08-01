@@ -898,8 +898,7 @@ fn markdown_io_recognizes_registered_decorator_tag() {
     }
     assert!(
         kinds.iter().any(|k| k.starts_with("d:file:abc")),
-        "kinds = {:?}",
-        kinds
+        "kinds = {kinds:?}"
     );
     // The orphan `</File>` close tag must not survive as literal text — the
     // parser hands it over as a fragment separate from the open tag.
@@ -907,8 +906,7 @@ fn markdown_io_recognizes_registered_decorator_tag() {
         !kinds
             .iter()
             .any(|k| k.contains("</File>") || k.contains("<File")),
-        "stray tag text leaked: {:?}",
-        kinds
+        "stray tag text leaked: {kinds:?}"
     );
 }
 
@@ -1060,8 +1058,7 @@ fn markdown_io_round_trips_file_and_image() {
         !texts
             .iter()
             .any(|t| t.contains("<File") || t.contains("</File>")),
-        "raw File tag leaked as text: {:?}",
-        texts
+        "raw File tag leaked as text: {texts:?}"
     );
 
     // And the serialized form re-emits the same wire markdown for each embed.

@@ -6,7 +6,7 @@ import { expect, Page } from "@playwright/test";
  * tree dump is the cue that focus has settled.
  */
 export async function freshEditor(page: Page) {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   // dx 0.8 may answer before its initial WASM build is ready.
   await page
     .getByRole("textbox", { name: "Rich text editor" })

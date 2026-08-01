@@ -57,7 +57,7 @@ pub fn normalize_href(s: &str) -> String {
     if lower.starts_with("http://") || lower.starts_with("https://") {
         t.to_string()
     } else {
-        format!("https://{}", t)
+        format!("https://{t}")
     }
 }
 

@@ -229,7 +229,7 @@ fn render_element(
         },
         "heading" => {
             let level = attrs.get_int("level").unwrap_or(1).clamp(1, 6);
-            let cls = format!("editor__h editor__h{}", level);
+            let cls = format!("editor__h editor__h{level}");
             let kids = render_children(doc.clone(), children_vec);
             // Dioxus rsx doesn't allow dynamic element names — pick the
             // tag at compile time and fall back to `<h1>` styling via class.

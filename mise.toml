@@ -1,0 +1,61 @@
+[tools]
+node = "22.23.2"
+rust = { version = "1.88.0", profile = "minimal", components = ["rustfmt", "clippy"], targets = ["wasm32-unknown-unknown"] }
+"cargo:dioxus-cli" = "0.8.0-alpha.1"
+
+[tasks.setup]
+description = "Install browser-test dependencies"
+run = [
+  "npm ci --prefix e2e",
+  "npm run install-browsers --prefix e2e",
+]
+
+[tasks.fmt]
+description = "Check Rust formatting"
+run = "cargo fmt --all -- --check"
+
+[tasks.lint]
+description = "Run Clippy"
+run = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
+
+[tasks."test:rust"]
+description = "Run Rust tests"
+run = "cargo test --workspace --all-features"
+
+[tasks."test:e2e"]
+description = "Run browser tests"
+run = "npm test --prefix e2e"
+
+[tasks.test]
+description = "Run Rust and browser tests"
+run = [
+  "cargo test --workspace --all-features",
+  "npm test --prefix e2e",
+]
+
+[tasks.docs]
+description = "Build documentation with warnings denied"
+env = { RUSTDOCFLAGS = "-D warnings" }
+run = "cargo doc -p dioxus-editor --no-deps --all-features"
+
+[tasks.serve]
+description = "Serve the browser fixture"
+run = "mise exec -- dx serve --package dioxus-editor-fixture --web --addr 127.0.0.1 --port 18083 --open false --interactive false"
+
+[tasks."check:rust"]
+description = "Run every Rust release check"
+env = { RUSTDOCFLAGS = "-D warnings" }
+run = [
+  "cargo fmt --all -- --check",
+  "cargo clippy --workspace --all-targets --all-features -- -D warnings",
+  "cargo test --workspace --all-features",
+  "cargo check -p dioxus-editor --no-default-features",
+  "cargo check -p dioxus-editor --target wasm32-unknown-unknown",
+  "cargo doc -p dioxus-editor --no-deps --all-features",
+  "cargo package --locked --allow-dirty",
+]
+
+[tasks.check]
+description = "Run every release check"
+depends = ["check:rust"]
+run = "npm test --prefix e2e"

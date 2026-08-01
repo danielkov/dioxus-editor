@@ -71,7 +71,7 @@ fn App() -> Element {
                     to_markdown: Rc::new(|attrs| {
                         let href = attrs.get_str("href").unwrap_or_default();
                         let label = attrs.get_str("text").unwrap_or(href);
-                        format!("[{}]({})", label, href)
+                        format!("[{label}]({href})")
                     }),
                 },
             );
@@ -284,7 +284,7 @@ fn format_to_str(f: FormatBits) -> String {
 fn dump_selection(sel: &Selection) -> String {
     match sel {
         Selection::None => "none".to_string(),
-        Selection::Node(k) => format!("node({})", k),
+        Selection::Node(k) => format!("node({k})"),
         Selection::Range { anchor, focus } => {
             if anchor == focus {
                 format!(
