@@ -4,6 +4,8 @@ A pluggable rich-text editor for Dioxus applications with a transaction-based
 document model, Markdown input/output, decorator rendering, history, keyboard
 commands, and a contenteditable Dioxus view.
 
+![dioxus-editor kitchen sink demo](docs/editor-demo.gif)
+
 > [!WARNING]
 > The 2.x line targets Dioxus 0.8 while Dioxus itself is in alpha.
 
