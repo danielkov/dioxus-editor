@@ -7,7 +7,10 @@ import { expect, Page } from "@playwright/test";
  */
 export async function freshEditor(page: Page) {
   await page.goto("/");
-  await page.getByRole("textbox", { name: "Rich text editor" }).click();
+  // dx 0.8 may answer before its initial WASM build is ready.
+  await page
+    .getByRole("textbox", { name: "Rich text editor" })
+    .click({ timeout: 60_000 });
   await expect(page.getByLabel("Document state")).toHaveText("(doc (paragraph))");
 }
 

@@ -908,27 +908,15 @@ fn handle_keydown(
 fn handle_paste(editor: &EditorHandle, e: Event<ClipboardData>) {
     #[cfg(target_arch = "wasm32")]
     {
-        use wasm_bindgen::JsCast;
-        let raw = e.data();
-        let Some(ev) = raw
-            .downcast::<web_sys::Event>()
-            .and_then(|raw| raw.dyn_ref::<web_sys::ClipboardEvent>())
-        else {
+        let clipboard = e.data().data_transfer();
+        if !clipboard.files().is_empty() {
+            // Files present — let bubbling deliver them to the host.
+            // Prevent the browser from also pasting any concurrent text
+            // representation into the contenteditable.
+            e.prevent_default();
             return;
-        };
-        let Some(cb) = ev.clipboard_data() else {
-            return;
-        };
-        if let Some(files) = cb.files() {
-            if files.length() > 0 {
-                // Files present — let bubbling deliver them to the host.
-                // Prevent the browser from also pasting any concurrent text
-                // representation into the contenteditable.
-                e.prevent_default();
-                return;
-            }
         }
-        if let Ok(text) = cb.get_data("text/plain") {
+        if let Some(text) = clipboard.get_as_text() {
             if !text.is_empty() {
                 e.prevent_default();
                 let state = editor.read_state();
@@ -1179,10 +1167,10 @@ mod wasm {
     /// Attach `beforeinput` to the editor element on mount. `beforeinput`
     /// is the canonical channel for ALL text input — typed characters
     /// (including non-BMP / emoji), IME accept, autocorrect, paste,
-    /// form-style autofill. Dioxus 0.7 doesn't expose `onbeforeinput` as
-    /// an `on…` attribute (renderer-portability concerns), so we attach
-    /// directly. The closure is retained in the per-editor DOM binding and
-    /// removed when the binding is replaced or dropped.
+    /// form-style autofill. We attach directly because `beforeinput` needs
+    /// access to browser-specific `InputEvent::input_type`. The closure is
+    /// retained in the per-editor DOM binding and removed when the binding is
+    /// replaced or dropped.
     pub fn attach_beforeinput(handle: &EditorHandle, data: Rc<MountedData>) {
         let Some(elem) = data.downcast::<web_sys::Element>() else {
             return;
@@ -1326,10 +1314,10 @@ mod wasm {
         install_selectionchange_listener(handle);
     }
 
-    /// Wire up Cmd/Ctrl+X. Dioxus 0.7 doesn't surface `oncut`, and the
-    /// `beforeinput` `deleteByCut` mirror can't reach the clipboard, so we
-    /// attach a native `cut` listener: copy the current selection text onto
-    /// the clipboard, suppress the browser's own DOM mutation, then remove
+    /// Wire up Cmd/Ctrl+X. The `beforeinput` `deleteByCut` mirror can't reach
+    /// the clipboard, so we attach a native `cut` listener: copy the current
+    /// selection text onto the clipboard, suppress the browser's own DOM
+    /// mutation, then remove
     /// the selected range through the model's delete path. Without this,
     /// every cut hit the `beforeinput` catch-all that only preventDefaulted
     /// — so Cmd+X did nothing.

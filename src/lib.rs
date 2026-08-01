@@ -1,4 +1,4 @@
-//! A pluggable rich-text editor for Dioxus 0.7.
+//! A pluggable rich-text editor for Dioxus 0.8.
 //!
 //! Mutations are expressed as [`Transaction`]s, application-defined rich
 //! content is registered with [`DecoratorSpec`], and [`EditorView`] renders

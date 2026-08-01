@@ -1,6 +1,6 @@
 [package]
 name = "dioxus-editor"
-version = "1.0.0"
+version = "2.0.0-alpha.1"
 edition = "2021"
 rust-version = "1.88"
 description = "A pluggable rich-text editor for Dioxus"
@@ -18,7 +18,7 @@ members = ["fixture"]
 resolver = "2"
 
 [workspace.dependencies]
-dioxus = { version = ">=0.7.10, <0.8", default-features = false, features = ["lib"] }
+dioxus = { version = "=0.8.0-alpha.1", default-features = false, features = ["lib"] }
 
 [dependencies]
 dioxus = { workspace = true }

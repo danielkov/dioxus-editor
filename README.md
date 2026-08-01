@@ -4,6 +4,9 @@ A pluggable rich-text editor for Dioxus applications with a transaction-based
 document model, Markdown input/output, decorator rendering, history, keyboard
 commands, and a contenteditable Dioxus view.
 
+> [!WARNING]
+> The 2.x line targets Dioxus 0.8 while Dioxus itself is in alpha.
+
 The crate exposes CSS class names but does **not** ship CSS; applications own
 all editor styling.
 
@@ -11,7 +14,7 @@ all editor styling.
 
 ```toml
 [dependencies]
-dioxus-editor = { git = "https://github.com/danielkov/dioxus-editor", tag = "v1.0.0" }
+dioxus-editor = { git = "https://github.com/danielkov/dioxus-editor", tag = "v2.0.0-alpha.1" }
 ```
 
 ```rust
