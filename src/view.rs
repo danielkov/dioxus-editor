@@ -84,13 +84,12 @@ pub fn EditorView(
             },
             onfocus: move |_| {
                 let state = editor_for_focus.read_state();
-                if matches!(state.selection, Selection::None) {
-                    if let Some((key, kind, off)) =
+                if matches!(state.selection, Selection::None)
+                    && let Some((key, kind, off)) =
                         crate::plugins::last_leaf(&state.doc)
                     {
                         editor_for_focus.set_selection(Selection::caret(Point { key, offset: off, kind }));
                     }
-                }
             },
             oncompositionstart: move |_| {
                 #[cfg(target_arch = "wasm32")]
@@ -100,13 +99,12 @@ pub fn EditorView(
                 #[cfg(target_arch = "wasm32")]
                 wasm::set_composing(false);
                 let text = e.data.data();
-                if !text.is_empty() {
-                    if let Some(tr) =
+                if !text.is_empty()
+                    && let Some(tr) =
                         crate::commands::insert_text(&editor_for_compose_end.read_state(), &text)
                     {
                         editor_for_compose_end.report_internal(editor_for_compose_end.dispatch(tr));
                     }
-                }
             },
             // The browser's `selectionchange` only fires on `document`,
             // so an element-bound `onselectionchange` here would never
@@ -923,38 +921,38 @@ fn handle_paste(editor: &EditorHandle, e: Event<ClipboardData>) {
         let Some(cb) = ev.clipboard_data() else {
             return;
         };
-        if let Some(files) = cb.files() {
-            if files.length() > 0 {
-                // Files present — let bubbling deliver them to the host.
-                // Prevent the browser from also pasting any concurrent text
-                // representation into the contenteditable.
-                e.prevent_default();
-                return;
-            }
+        if let Some(files) = cb.files()
+            && files.length() > 0
+        {
+            // Files present — let bubbling deliver them to the host.
+            // Prevent the browser from also pasting any concurrent text
+            // representation into the contenteditable.
+            e.prevent_default();
+            return;
         }
-        if let Ok(text) = cb.get_data("text/plain") {
-            if !text.is_empty() {
-                e.prevent_default();
-                let state = editor.read_state();
-                // A pasted URL becomes a link node: over a non-empty
-                // selection it wraps the selected text (the pasted URL is
-                // the href); otherwise the URL itself is the link label.
-                let trimmed = text.trim();
-                if state.schema.has_decorator("link") && crate::autolink::looks_like_url(trimmed) {
-                    let linked = match &state.selection {
-                        Selection::Range { anchor, focus } if anchor != focus => {
-                            crate::commands::wrap_selection_as_link(&state, trimmed)
-                        }
-                        _ => crate::commands::insert_link(&state, trimmed, trimmed),
-                    };
-                    if let Some(tr) = linked {
-                        editor.report_internal(editor.dispatch(tr));
-                        return;
+        if let Ok(text) = cb.get_data("text/plain")
+            && !text.is_empty()
+        {
+            e.prevent_default();
+            let state = editor.read_state();
+            // A pasted URL becomes a link node: over a non-empty
+            // selection it wraps the selected text (the pasted URL is
+            // the href); otherwise the URL itself is the link label.
+            let trimmed = text.trim();
+            if state.schema.has_decorator("link") && crate::autolink::looks_like_url(trimmed) {
+                let linked = match &state.selection {
+                    Selection::Range { anchor, focus } if anchor != focus => {
+                        crate::commands::wrap_selection_as_link(&state, trimmed)
                     }
-                }
-                if let Some(tr) = insert_text(&state, &text) {
+                    _ => crate::commands::insert_link(&state, trimmed, trimmed),
+                };
+                if let Some(tr) = linked {
                     editor.report_internal(editor.dispatch(tr));
+                    return;
                 }
+            }
+            if let Some(tr) = insert_text(&state, &text) {
+                editor.report_internal(editor.dispatch(tr));
             }
         }
     }
@@ -974,18 +972,17 @@ fn handle_drop(editor: &EditorHandle, e: Event<DragData>) {
         let Some(dt) = ev.data_transfer() else {
             return;
         };
-        if let Some(files) = dt.files() {
-            if files.length() > 0 {
-                // Same as paste: bubble to the host's upload pipeline.
-                return;
-            }
+        if let Some(files) = dt.files()
+            && files.length() > 0
+        {
+            // Same as paste: bubble to the host's upload pipeline.
+            return;
         }
-        if let Ok(text) = dt.get_data("text/plain") {
-            if !text.is_empty() {
-                if let Some(tr) = insert_text(&editor.read_state(), &text) {
-                    editor.report_internal(editor.dispatch(tr));
-                }
-            }
+        if let Ok(text) = dt.get_data("text/plain")
+            && !text.is_empty()
+            && let Some(tr) = insert_text(&editor.read_state(), &text)
+        {
+            editor.report_internal(editor.dispatch(tr));
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -1014,7 +1011,7 @@ fn focus_cell_menu(cell_key: NodeKey) {
         .and_then(|window| window.document())
         .and_then(|document| {
             document
-                .query_selector(&format!("[data-cell-menu=\"{}\"]", cell_key))
+                .query_selector(&format!("[data-cell-menu=\"{cell_key}\"]"))
                 .ok()
                 .flatten()
         })
@@ -1035,7 +1032,7 @@ fn position_popover(cell_key: NodeKey, e: &Event<MountedData>) {
         return;
     };
     let Some(cell) = doc
-        .query_selector(&format!("[data-key=\"{}\"]", cell_key))
+        .query_selector(&format!("[data-key=\"{cell_key}\"]"))
         .ok()
         .flatten()
     else {
@@ -1077,8 +1074,8 @@ fn position_popover(cell_key: NodeKey, e: &Event<MountedData>) {
     }
     let html = pop.dyn_ref::<web_sys::HtmlElement>().map(|h| h.style());
     if let Some(style) = html {
-        let _ = style.set_property("top", &format!("{}px", top));
-        let _ = style.set_property("left", &format!("{}px", left));
+        let _ = style.set_property("top", &format!("{top}px"));
+        let _ = style.set_property("left", &format!("{left}px"));
         let _ = style.set_property("visibility", "visible");
     }
 }
@@ -1115,8 +1112,8 @@ mod wasm {
     use std::rc::Rc;
 
     use dioxus::html::MountedData;
-    use wasm_bindgen::closure::Closure;
     use wasm_bindgen::JsCast;
+    use wasm_bindgen::closure::Closure;
 
     use crate::model::{Doc, Node, NodeKey};
     use crate::selection::{Point, PointKind, Selection};
@@ -1558,17 +1555,16 @@ mod wasm {
         // parent span (PointKind::Text).
         let starting_was_text = node.node_type() == web_sys::Node::TEXT_NODE;
         while let Some(n) = cur {
-            if let Some(el) = n.dyn_ref::<web_sys::Element>() {
-                if let Some(key_attr) = el.get_attribute("data-key") {
-                    if let Ok(k) = key_attr.parse::<NodeKey>() {
-                        let kind = if starting_was_text {
-                            PointKind::Text
-                        } else {
-                            PointKind::Element
-                        };
-                        return Some((k, kind));
-                    }
-                }
+            if let Some(el) = n.dyn_ref::<web_sys::Element>()
+                && let Some(key_attr) = el.get_attribute("data-key")
+                && let Ok(k) = key_attr.parse::<NodeKey>()
+            {
+                let kind = if starting_was_text {
+                    PointKind::Text
+                } else {
+                    PointKind::Element
+                };
+                return Some((k, kind));
             }
             cur = n.parent_node();
         }
@@ -1632,7 +1628,7 @@ mod wasm {
     }
 
     fn find_keyed(root: &web_sys::Element, key: NodeKey) -> Option<web_sys::Element> {
-        let selector = format!("[data-key=\"{}\"]", key);
+        let selector = format!("[data-key=\"{key}\"]");
         root.query_selector(&selector).ok().flatten()
     }
 }

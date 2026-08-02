@@ -192,36 +192,34 @@ fn insert_text_at_caret(
             } else {
                 None
             };
-            if let Some(prev) = prev_key {
-                if let Some(prev_text) = doc.get_text(prev) {
-                    if prev_text.format == target_format {
-                        let new_offset = prev_text.text.chars().count() + text.chars().count();
-                        tr.steps.push(Step::ReplaceText {
-                            key: prev,
-                            from: prev_text.text.chars().count(),
-                            to: prev_text.text.chars().count(),
-                            text: text.to_string(),
-                        });
-                        tr.selection = Some(Selection::caret(Point::text(prev, new_offset)));
-                        return Some(tr);
-                    }
-                }
+            if let Some(prev) = prev_key
+                && let Some(prev_text) = doc.get_text(prev)
+                && prev_text.format == target_format
+            {
+                let new_offset = prev_text.text.chars().count() + text.chars().count();
+                tr.steps.push(Step::ReplaceText {
+                    key: prev,
+                    from: prev_text.text.chars().count(),
+                    to: prev_text.text.chars().count(),
+                    text: text.to_string(),
+                });
+                tr.selection = Some(Selection::caret(Point::text(prev, new_offset)));
+                return Some(tr);
             }
             let next_key = e.children.get(point.offset).copied();
-            if let Some(next) = next_key {
-                if let Some(next_text) = doc.get_text(next) {
-                    if next_text.format == target_format {
-                        let new_offset = text.chars().count();
-                        tr.steps.push(Step::ReplaceText {
-                            key: next,
-                            from: 0,
-                            to: 0,
-                            text: text.to_string(),
-                        });
-                        tr.selection = Some(Selection::caret(Point::text(next, new_offset)));
-                        return Some(tr);
-                    }
-                }
+            if let Some(next) = next_key
+                && let Some(next_text) = doc.get_text(next)
+                && next_text.format == target_format
+            {
+                let new_offset = text.chars().count();
+                tr.steps.push(Step::ReplaceText {
+                    key: next,
+                    from: 0,
+                    to: 0,
+                    text: text.to_string(),
+                });
+                tr.selection = Some(Selection::caret(Point::text(next, new_offset)));
+                return Some(tr);
             }
             let predicted = doc.peek_next_key();
             tr.steps.push(Step::InsertNodes {
@@ -245,11 +243,11 @@ fn insert_text_at_caret(
 /// Delete the character/decorator immediately before the caret.
 pub fn delete_backward(state: &EditorState) -> Option<Transaction> {
     let sel = state.selection.clone();
-    if let Selection::Range { anchor, focus } = &sel {
-        if anchor != focus {
-            let (from, to) = order_points(&state.doc, *anchor, *focus);
-            return delete_range_transaction(&state.doc, from, to);
-        }
+    if let Selection::Range { anchor, focus } = &sel
+        && anchor != focus
+    {
+        let (from, to) = order_points(&state.doc, *anchor, *focus);
+        return delete_range_transaction(&state.doc, from, to);
     }
     if let Selection::Node(key) = sel {
         let (parent, idx) = state.doc.child_index(key)?;
@@ -286,56 +284,53 @@ pub fn delete_backward(state: &EditorState) -> Option<Transaction> {
                 .map(|(parent, _)| parent),
             PointKind::Element => Some(caret.key),
         };
-        if let Some(block_key) = at_block_start {
-            if let Some(block_e) = state.doc.get_element(block_key) {
-                // Demote heading / blockquote / code_block at
-                // start of content collapse back to a plain paragraph,
-                // preserving children. Code_block joins this set so an empty
-                // code_block created via toolbar can be dismissed with one
-                // Backspace — without it the user is stranded in the empty
-                // block (and the `\n`-preserving split semantics make a
-                // second Backspace inside it indistinguishable from the
-                // first).
-                if block_e.kind == "heading"
-                    || block_e.kind == "blockquote"
-                    || block_e.kind == "code_block"
+        if let Some(block_key) = at_block_start
+            && let Some(block_e) = state.doc.get_element(block_key)
+        {
+            // Demote heading / blockquote / code_block at
+            // start of content collapse back to a plain paragraph,
+            // preserving children. Code_block joins this set so an empty
+            // code_block created via toolbar can be dismissed with one
+            // Backspace — without it the user is stranded in the empty
+            // block (and the `\n`-preserving split semantics make a
+            // second Backspace inside it indistinguishable from the
+            // first).
+            if block_e.kind == "heading"
+                || block_e.kind == "blockquote"
+                || block_e.kind == "code_block"
+            {
+                return set_block_kind(state, "paragraph", Attrs::new());
+            }
+            if block_e.kind == "list_item"
+                && let Some((list_key, _)) = state.doc.child_index(block_key)
+                && let Some(list_e) = state.doc.get_element(list_key)
+                && (list_e.kind == "bullet_list" || list_e.kind == "ordered_list")
+                && state.doc.parent(list_key) == Some(state.doc.root)
+            {
+                // Empty item at any position: lift it out
+                // to a paragraph at the item's slot. Non-
+                // empty items fall through to the normal
+                // join-with-previous merge path (common
+                // behaviour: content items merge upward,
+                // empty items exit the list in place so
+                // the cursor doesn't hop back to the
+                // preceding bullet's end).
+                let item_is_empty = block_e.children.is_empty()
+                    || block_e.children.iter().all(|&k| {
+                        state
+                            .doc
+                            .get_text(k)
+                            .map(|t| t.text.is_empty())
+                            .unwrap_or(false)
+                    });
+                if item_is_empty
+                    || state
+                        .doc
+                        .child_index(block_key)
+                        .map(|(_, i)| i == 0)
+                        .unwrap_or(false)
                 {
-                    return set_block_kind(state, "paragraph", Attrs::new());
-                }
-                if block_e.kind == "list_item" {
-                    if let Some((list_key, _)) = state.doc.child_index(block_key) {
-                        if let Some(list_e) = state.doc.get_element(list_key) {
-                            if (list_e.kind == "bullet_list" || list_e.kind == "ordered_list")
-                                && state.doc.parent(list_key) == Some(state.doc.root)
-                            {
-                                // Empty item at any position: lift it out
-                                // to a paragraph at the item's slot. Non-
-                                // empty items fall through to the normal
-                                // join-with-previous merge path (common
-                                // behaviour: content items merge upward,
-                                // empty items exit the list in place so
-                                // the cursor doesn't hop back to the
-                                // preceding bullet's end).
-                                let item_is_empty = block_e.children.is_empty()
-                                    || block_e.children.iter().all(|&k| {
-                                        state
-                                            .doc
-                                            .get_text(k)
-                                            .map(|t| t.text.is_empty())
-                                            .unwrap_or(false)
-                                    });
-                                if item_is_empty
-                                    || state
-                                        .doc
-                                        .child_index(block_key)
-                                        .map(|(_, i)| i == 0)
-                                        .unwrap_or(false)
-                                {
-                                    return list_outdent_item(state, list_key, block_key);
-                                }
-                            }
-                        }
-                    }
+                    return list_outdent_item(state, list_key, block_key);
                 }
             }
         }
@@ -427,11 +422,11 @@ pub fn delete_backward(state: &EditorState) -> Option<Transaction> {
 /// Delete the character/decorator immediately after the caret.
 pub fn delete_forward(state: &EditorState) -> Option<Transaction> {
     let sel = state.selection.clone();
-    if let Selection::Range { anchor, focus } = &sel {
-        if anchor != focus {
-            let (from, to) = order_points(&state.doc, *anchor, *focus);
-            return delete_range_transaction(&state.doc, from, to);
-        }
+    if let Selection::Range { anchor, focus } = &sel
+        && anchor != focus
+    {
+        let (from, to) = order_points(&state.doc, *anchor, *focus);
+        return delete_range_transaction(&state.doc, from, to);
     }
     if let Selection::Node(key) = sel {
         let (parent, idx) = state.doc.child_index(key)?;
@@ -638,10 +633,9 @@ pub fn toggle_mark(state: &EditorState, mark: FormatBits) -> Option<Transaction>
     if let (Some((p_from, _)), Some((p_to, _))) = (
         state.doc.child_index(from.key),
         state.doc.child_index(to.key),
-    ) {
-        if p_from == p_to {
-            return toggle_mark_cross_node(state, from, to, mark);
-        }
+    ) && p_from == p_to
+    {
+        return toggle_mark_cross_node(state, from, to, mark);
     }
     toggle_mark_cross_block(state, from, to, mark)
 }
@@ -1198,10 +1192,10 @@ fn insert_block_decorator(
     // mid-structure — splitting a list to drop an image between two items
     // would surprise the user more than placing the image just after.
     let mut block = caret.key;
-    if caret.kind == PointKind::Text {
-        if let Some((parent, _)) = state.doc.child_index(caret.key) {
-            block = parent;
-        }
+    if caret.kind == PointKind::Text
+        && let Some((parent, _)) = state.doc.child_index(caret.key)
+    {
+        block = parent;
     }
     while let Some(parent) = state.doc.parent(block) {
         if parent == state.doc.root {
@@ -1353,11 +1347,7 @@ pub(crate) fn order_points(doc: &Doc, a: Point, b: Point) -> (Point, Point) {
     // Cross-node: compute document order by walking the tree from root.
     let order_a = document_position(doc, a);
     let order_b = document_position(doc, b);
-    if order_a <= order_b {
-        (a, b)
-    } else {
-        (b, a)
-    }
+    if order_a <= order_b { (a, b) } else { (b, a) }
 }
 
 fn same_position(a: Point, b: Point) -> bool {
@@ -1619,10 +1609,11 @@ fn normalize_empty_non_paragraph_blocks(doc: &Doc, base: Transaction) -> Transac
     let root_children = virtual_doc.root_node().children.clone();
     let mut empty_idxs: Vec<usize> = Vec::new();
     for (i, &child) in root_children.iter().enumerate() {
-        if let Some(e) = virtual_doc.get_element(child) {
-            if e.children.is_empty() && e.kind != "paragraph" {
-                empty_idxs.push(i);
-            }
+        if let Some(e) = virtual_doc.get_element(child)
+            && e.children.is_empty()
+            && e.kind != "paragraph"
+        {
+            empty_idxs.push(i);
         }
     }
     if empty_idxs.is_empty() {
@@ -1680,20 +1671,18 @@ fn normalize_empty_non_paragraph_blocks(doc: &Doc, base: Transaction) -> Transac
     // inserted paragraph instead. Heuristic: if the base's selection
     // resolves to a key that's a descendant of (or equals) one of the
     // dropped blocks, retarget.
-    if let Some(sel) = &base.selection {
-        if let Some(point) = match sel {
+    if let Some(sel) = &base.selection
+        && let Some(point) = match sel {
             Selection::Range { focus, .. } => Some(*focus),
             _ => None,
-        } {
-            let in_dropped = root_children.iter().enumerate().any(|(i, &k)| {
-                empty_idxs.contains(&i)
-                    && (point.key == k || ancestor_chain_contains(&virtual_doc, point.key, k))
-            });
-            if in_dropped {
-                if let Some(new_key) = first_caret {
-                    tr.selection = Some(Selection::caret(Point::element(new_key, 0)));
-                }
-            }
+        }
+    {
+        let in_dropped = root_children.iter().enumerate().any(|(i, &k)| {
+            empty_idxs.contains(&i)
+                && (point.key == k || ancestor_chain_contains(&virtual_doc, point.key, k))
+        });
+        if in_dropped && let Some(new_key) = first_caret {
+            tr.selection = Some(Selection::caret(Point::element(new_key, 0)));
         }
     }
     tr
@@ -2185,17 +2174,14 @@ fn coalesce_into(out: &mut Vec<NodeSpec>, tail: Vec<NodeSpec>) {
             text: incoming_text,
             format: incoming_format,
         } = &spec
-        {
-            if let Some(NodeSpec::Text {
+            && let Some(NodeSpec::Text {
                 text: prev_text,
                 format: prev_format,
             }) = out.last_mut()
-            {
-                if *prev_format == *incoming_format {
-                    prev_text.push_str(incoming_text);
-                    continue;
-                }
-            }
+            && *prev_format == *incoming_format
+        {
+            prev_text.push_str(incoming_text);
+            continue;
         }
         out.push(spec);
     }
@@ -2239,11 +2225,10 @@ fn delete_range_cross_block_simple(doc: &Doc, from: Point, to: Point) -> Option<
             text: prev_text,
             format: prev_format,
         }) = out.last_mut()
+            && *prev_format == format
         {
-            if *prev_format == format {
-                prev_text.push_str(&text);
-                return;
-            }
+            prev_text.push_str(&text);
+            return;
         }
         out.push(NodeSpec::Text { text, format });
     };
@@ -2983,19 +2968,18 @@ fn join_with_next(doc: &Doc, key: NodeKey) -> Option<Transaction> {
     let next_first_key = next_block.children.first().copied();
     let mut skip_first_next = false;
     let mut caret_text_target: Option<(NodeKey, usize)> = None;
-    if let Some(first_key) = next_first_key {
-        if let Some(next_text) = doc.get_text(first_key) {
-            if next_text.format == prev_format {
-                tr.steps.push(Step::ReplaceText {
-                    key,
-                    from: prev_len,
-                    to: prev_len,
-                    text: next_text.text.clone(),
-                });
-                caret_text_target = Some((key, prev_len));
-                skip_first_next = true;
-            }
-        }
+    if let Some(first_key) = next_first_key
+        && let Some(next_text) = doc.get_text(first_key)
+        && next_text.format == prev_format
+    {
+        tr.steps.push(Step::ReplaceText {
+            key,
+            from: prev_len,
+            to: prev_len,
+            text: next_text.text.clone(),
+        });
+        caret_text_target = Some((key, prev_len));
+        skip_first_next = true;
     }
 
     let block_child_count_after_merge = block.children.len();
@@ -3076,21 +3060,20 @@ fn join_with_previous_element(doc: &Doc, block_key: NodeKey) -> Option<Transacti
     let cur_first_key = cur_children.first().copied();
     let mut skip_first_cur = false;
     let mut caret_text_target: Option<(NodeKey, usize)> = None;
-    if let (Some(p), Some(c)) = (prev_last_key, cur_first_key) {
-        if let (Some(p_text), Some(c_text)) = (doc.get_text(p), doc.get_text(c)) {
-            if p_text.format == c_text.format {
-                let p_len = p_text.text.chars().count();
-                let merge_text = c_text.text.clone();
-                tr.steps.push(Step::ReplaceText {
-                    key: p,
-                    from: p_len,
-                    to: p_len,
-                    text: merge_text,
-                });
-                caret_text_target = Some((p, p_len));
-                skip_first_cur = true;
-            }
-        }
+    if let (Some(p), Some(c)) = (prev_last_key, cur_first_key)
+        && let (Some(p_text), Some(c_text)) = (doc.get_text(p), doc.get_text(c))
+        && p_text.format == c_text.format
+    {
+        let p_len = p_text.text.chars().count();
+        let merge_text = c_text.text.clone();
+        tr.steps.push(Step::ReplaceText {
+            key: p,
+            from: p_len,
+            to: p_len,
+            text: merge_text,
+        });
+        caret_text_target = Some((p, p_len));
+        skip_first_cur = true;
     }
 
     // Re-insert the rest of cur's children at the end of prev.
@@ -3136,17 +3119,15 @@ fn join_with_previous_element(doc: &Doc, block_key: NodeKey) -> Option<Transacti
 fn coalesce_text_specs(specs: Vec<NodeSpec>) -> Vec<NodeSpec> {
     let mut out: Vec<NodeSpec> = Vec::with_capacity(specs.len());
     for spec in specs {
-        if let NodeSpec::Text { text, format } = &spec {
-            if let Some(NodeSpec::Text {
+        if let NodeSpec::Text { text, format } = &spec
+            && let Some(NodeSpec::Text {
                 text: prev_text,
                 format: prev_format,
             }) = out.last_mut()
-            {
-                if *prev_format == *format {
-                    prev_text.push_str(text);
-                    continue;
-                }
-            }
+            && *prev_format == *format
+        {
+            prev_text.push_str(text);
+            continue;
         }
         out.push(spec);
     }
@@ -3208,10 +3189,10 @@ pub fn insert_table(state: &EditorState, rows: usize, cols: usize) -> Option<Tra
     })?;
     // Find the top-level block under doc.root that contains the caret.
     let mut block = caret.key;
-    if caret.kind == PointKind::Text {
-        if let Some((parent, _)) = state.doc.child_index(caret.key) {
-            block = parent;
-        }
+    if caret.kind == PointKind::Text
+        && let Some((parent, _)) = state.doc.child_index(caret.key)
+    {
+        block = parent;
     }
     while let Some(parent) = state.doc.parent(block) {
         if parent == state.doc.root {
@@ -3635,10 +3616,10 @@ pub fn delete_column(state: &EditorState) -> Option<Transaction> {
     }
     let new_table = rebuild_table_spec_from(&state.doc, &ctx, |rows, attrs| {
         for row in rows.iter_mut() {
-            if let NodeSpec::Element { children, .. } = row {
-                if ctx.col_idx < children.len() {
-                    children.remove(ctx.col_idx);
-                }
+            if let NodeSpec::Element { children, .. } = row
+                && ctx.col_idx < children.len()
+            {
+                children.remove(ctx.col_idx);
             }
         }
         let mut aligns = split_align(attrs, ctx.cols);
@@ -3863,11 +3844,11 @@ pub fn duplicate_column(state: &EditorState) -> Option<Transaction> {
     let ctx = table_context(state)?;
     let new_table = rebuild_table_spec_from(&state.doc, &ctx, |rows, attrs| {
         for row in rows.iter_mut() {
-            if let NodeSpec::Element { children, .. } = row {
-                if let Some(cell) = children.get(ctx.col_idx).cloned() {
-                    let insert_at = (ctx.col_idx + 1).min(children.len());
-                    children.insert(insert_at, cell);
-                }
+            if let NodeSpec::Element { children, .. } = row
+                && let Some(cell) = children.get(ctx.col_idx).cloned()
+            {
+                let insert_at = (ctx.col_idx + 1).min(children.len());
+                children.insert(insert_at, cell);
             }
         }
         let mut aligns = split_align(attrs, ctx.cols);

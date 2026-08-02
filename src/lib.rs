@@ -40,6 +40,6 @@ pub use model::{DecoratorNode, Doc, ElementNode, Node, NodeKey, TextNode};
 pub use plugin::{Command, EditorEvent, KeyBinding, Plugin};
 pub use schema::{DecoratorRenderer, DecoratorSpec, Schema};
 pub use selection::{Point, PointKind, Selection};
-pub use state::{use_editor, DispatchError, EditorConfig, EditorHandle, EditorState};
+pub use state::{DispatchError, EditorConfig, EditorHandle, EditorState, use_editor};
 pub use step::{NodeSpec, Step, StepError, Transaction};
 pub use view::EditorView;
