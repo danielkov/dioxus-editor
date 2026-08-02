@@ -659,6 +659,7 @@ name = "dioxus-editor"
 version = "1.0.0"
 dependencies = [
  "dioxus",
+ "js-sys",
  "pulldown-cmark",
  "wasm-bindgen",
  "web-sys",
