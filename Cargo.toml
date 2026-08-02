@@ -1,7 +1,7 @@
 [package]
 name = "dioxus-editor"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"
 description = "A pluggable rich-text editor for Dioxus"
 license = "MIT OR Apache-2.0"
@@ -18,7 +18,9 @@ members = ["fixture"]
 resolver = "2"
 
 [workspace.dependencies]
-dioxus = { version = ">=0.7.10, <0.8", default-features = false, features = ["lib"] }
+dioxus = { version = ">=0.7.10, <0.8", default-features = false, features = [
+    "lib",
+] }
 
 [dependencies]
 dioxus = { workspace = true }
