@@ -15,3 +15,11 @@ web = ["dioxus/web"]
 [dependencies]
 dioxus = { workspace = true, features = ["launch"] }
 dioxus-editor = { path = ".." }
+web-sys = { version = "0.3", features = [
+    "Document",
+    "DomRect",
+    "Element",
+    "Range",
+    "Selection",
+    "Window",
+] }
