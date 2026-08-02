@@ -304,6 +304,33 @@ try {
   await pause(300);
   await enter();
 
+  await caption("Select with the keyboard");
+  await type("keyboard drives everything.");
+  for (let i = 0; i < "everything.".length; i++) {
+    await page.keyboard.press("Shift+ArrowLeft");
+    await pause(45);
+  }
+  await pause(450);
+  await caption("Cut to the clipboard");
+  await page.keyboard.press(`${mod}+x`);
+  const cutText = editor.getByText("everything.", { exact: false });
+  await cutText.waitFor({ state: "hidden" });
+  await pause(450);
+  await caption("Paste it back");
+  await page.keyboard.press(`${mod}+v`);
+  await cutText.waitFor({ state: "visible" });
+  await pause(400);
+  await caption("Caret navigation");
+  await page.keyboard.press(mod === "Meta" ? "Meta+ArrowLeft" : "Home");
+  await pause(250);
+  await type("The ");
+  await editor
+    .getByText("The keyboard drives everything.", { exact: true })
+    .waitFor({ state: "visible" });
+  await page.keyboard.press(mod === "Meta" ? "Meta+ArrowRight" : "End");
+  await pause(250);
+  await enter();
+
   await caption("Code blocks");
   await type("let state = editor.read_state();");
   await page.getByRole("button", { name: "code block", exact: true }).click();
@@ -356,6 +383,12 @@ try {
       throw error;
     }
   }
+
+  await caption("Select all — one document, one model");
+  await page.keyboard.press(`${mod}+a`);
+  await pause(900);
+  await page.keyboard.press("ArrowRight");
+  await pause(250);
 
   await caption("Transaction-based · accessible · extensible");
   await pause(1_200);
