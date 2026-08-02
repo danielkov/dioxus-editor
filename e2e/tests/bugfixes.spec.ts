@@ -10,7 +10,6 @@
 
 import { test, expect } from "@playwright/test";
 import {
-  caretToTextStart,
   expectDump,
   freshEditor,
   typeText,

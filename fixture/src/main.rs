@@ -14,6 +14,72 @@ fn main() {
     dioxus::launch(App);
 }
 
+/// Directory the mention picker completes against. A real application
+/// would query its user service; the fixture uses a static roster.
+const TEAM: &[(&str, &str)] = &[
+    ("ferris", "Ferris the Crab"),
+    ("fern", "Fern Woods"),
+    ("ada", "Ada Lovelace"),
+    ("clippy", "Clippy"),
+];
+
+/// Detect an active `@query` immediately before a collapsed text caret.
+/// Returns `(text_key, start, end, query)` where `start..end` spans the
+/// `@` and the query chars. The `@` must sit at the start of its text
+/// node or after whitespace so `user@example` never opens the picker.
+fn mention_query(state: &EditorState) -> Option<(NodeKey, usize, usize, String)> {
+    let Selection::Range { anchor, focus } = &state.selection else {
+        return None;
+    };
+    if anchor != focus || focus.kind != PointKind::Text {
+        return None;
+    }
+    let text = state.doc.get_text(focus.key)?;
+    let chars: Vec<char> = text.text.chars().collect();
+    let caret = focus.offset.min(chars.len());
+    let mut i = caret;
+    while i > 0 {
+        let c = chars[i - 1];
+        if c == '@' {
+            if i >= 2 && !chars[i - 2].is_whitespace() {
+                return None;
+            }
+            let query: String = chars[i..caret].iter().collect();
+            return Some((focus.key, i - 1, caret, query));
+        }
+        if !c.is_alphanumeric() && c != '_' && c != '-' {
+            return None;
+        }
+        i -= 1;
+    }
+    None
+}
+
+/// Replace the active `@query` with a `mention` decorator plus a
+/// trailing space so typing flows on naturally after the pick.
+fn pick_mention(handle: &EditorHandle, name: &str) {
+    let state = handle.read_state();
+    let Some((key, start, end, _)) = mention_query(&state) else {
+        return;
+    };
+    if let Some(tr) = dioxus_editor::commands::delete_range_transaction(
+        &state.doc,
+        Point::text(key, start),
+        Point::text(key, end),
+    ) {
+        let _ = handle.dispatch(tr);
+    }
+    let state = handle.read_state();
+    let attrs = Attrs::new().with("name", name);
+    if let Some(tr) = dioxus_editor::commands::insert_decorator(&state, "mention", attrs) {
+        let _ = handle.dispatch(tr);
+    }
+    let state = handle.read_state();
+    if let Some(tr) = dioxus_editor::commands::insert_text(&state, " ") {
+        let _ = handle.dispatch(tr);
+    }
+}
+
 struct FailingPlugin;
 
 impl Plugin for FailingPlugin {
@@ -48,6 +114,19 @@ fn App() -> Element {
                 },
             )
             .with_decorator(
+                "mention",
+                DecoratorSpec {
+                    inline: true,
+                    render: Rc::new(|attrs: &Attrs| {
+                        let name = attrs.get_str("name").unwrap_or("unknown").to_string();
+                        rsx! { span { class: "fixture-mention", "@{name}" } }
+                    }),
+                    to_markdown: Rc::new(|attrs| {
+                        format!("@{}", attrs.get_str("name").unwrap_or("unknown"))
+                    }),
+                },
+            )
+            .with_decorator(
                 "link",
                 DecoratorSpec {
                     inline: true,
@@ -57,7 +136,7 @@ fn App() -> Element {
                         if href.starts_with("https://") || href.starts_with("http://") {
                             rsx! {
                                 a {
-                                    class: "editor__link",
+                                    class: "fixture-link",
                                     href: "{href}",
                                     target: "_blank",
                                     rel: "noopener noreferrer",
@@ -65,7 +144,7 @@ fn App() -> Element {
                                 }
                             }
                         } else {
-                            rsx! { span { class: "editor__link editor__link--unsafe", "{label}" } }
+                            rsx! { span { class: "fixture-link fixture-link--unsafe", "{label}" } }
                         }
                     }),
                     to_markdown: Rc::new(|attrs| {
@@ -88,6 +167,78 @@ fn App() -> Element {
     let state = state_sig.read().clone();
     let dump = dump_doc(&state.doc);
     let sel = dump_selection(&state.selection);
+
+    let mention = mention_query(&state);
+    // Anchor the picker under the caret. Measured in an effect so the
+    // DOM selection has been synced to the model by the time we read it.
+    let mut popup_pos = use_signal(|| (0.0_f64, 0.0_f64));
+    {
+        let state_sig = handle.state_signal();
+        use_effect(move || {
+            let state = state_sig.read();
+            if mention_query(&state).is_none() {
+                return;
+            }
+            let Some(window) = web_sys::window() else {
+                return;
+            };
+            let Some(document) = window.document() else {
+                return;
+            };
+            let Ok(Some(selection)) = window.get_selection() else {
+                return;
+            };
+            if selection.range_count() == 0 {
+                return;
+            }
+            let Ok(range) = selection.get_range_at(0) else {
+                return;
+            };
+            let caret_rect = range.get_bounding_client_rect();
+            let Ok(Some(frame)) = document.query_selector(".fixture-frame") else {
+                return;
+            };
+            let frame_rect = frame.get_bounding_client_rect();
+            popup_pos.set((
+                caret_rect.bottom() - frame_rect.top() + frame.scroll_top() as f64 + 4.0,
+                caret_rect.left() - frame_rect.left() + frame.scroll_left() as f64,
+            ));
+        });
+    }
+    let mention_popup = mention.as_ref().and_then(|(_, _, _, query)| {
+        let query = query.to_lowercase();
+        let matches: Vec<(&str, &str)> = TEAM
+            .iter()
+            .copied()
+            .filter(|(username, _)| username.starts_with(query.as_str()))
+            .collect();
+        if matches.is_empty() {
+            return None;
+        }
+        let (top, left) = popup_pos();
+        Some(rsx! {
+            div {
+                class: "fixture-mention-popup",
+                role: "listbox",
+                "aria-label": "Mention suggestions",
+                style: "top: {top}px; left: {left}px;",
+                for (username, full_name) in matches {
+                    button {
+                        class: "fixture-mention-item",
+                        role: "option",
+                        onmousedown: move |e: Event<MouseData>| e.prevent_default(),
+                        onclick: {
+                            let handle = handle.clone();
+                            move |_| pick_mention(&handle, username)
+                        },
+                        span { class: "fixture-mention-avatar", {username[..1].to_uppercase()} }
+                        span { class: "fixture-mention-name", "@{username}" }
+                        span { class: "fixture-mention-full", "{full_name}" }
+                    }
+                }
+            }
+        })
+    });
 
     let handle_insert = handle.clone();
     let on_insert_embed = move |_| {
@@ -134,6 +285,7 @@ fn App() -> Element {
                         on_error: move |error: DispatchError| last_error.set(error.to_string()),
                     }
                 }
+                {mention_popup}
             }
             div { class: "fixture-actions",
                 button {
