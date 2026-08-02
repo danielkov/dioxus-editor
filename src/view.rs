@@ -8,8 +8,12 @@
 //! only owns the outer wrapper (`contenteditable="false"`, `data-key`, the
 //! click-to-select handler).
 //!
-//! Host applications style the `editor`, `editor__*`, and
-//! `e-b` / `e-i` / `e-s` / `e-c` classes. This crate does not ship CSS.
+//! Host applications style the `editor` root (`editor--empty` while the
+//! document has no content), the `editor__*` block classes, and the text-run
+//! classes: every text span carries `e-t`, plus `e-b` (bold), `e-i`
+//! (italic), `e-s` (strike), and `e-c` (inline code) for its active
+//! formats. This crate does not ship CSS — see `docs/styling.md` for the
+//! full class reference and the required host rules.
 
 use dioxus::html::{Key, Modifiers};
 use dioxus::prelude::*;
