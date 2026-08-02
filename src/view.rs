@@ -999,7 +999,7 @@ fn focus_cell_menu(cell_key: NodeKey) {
         .and_then(|window| window.document())
         .and_then(|document| {
             document
-                .query_selector(&format!("[data-cell-menu=\"{}\"]", cell_key))
+                .query_selector(&format!("[data-cell-menu=\"{cell_key}\"]"))
                 .ok()
                 .flatten()
         })
@@ -1020,7 +1020,7 @@ fn position_popover(cell_key: NodeKey, e: &Event<MountedData>) {
         return;
     };
     let Some(cell) = doc
-        .query_selector(&format!("[data-key=\"{}\"]", cell_key))
+        .query_selector(&format!("[data-key=\"{cell_key}\"]"))
         .ok()
         .flatten()
     else {
@@ -1062,8 +1062,8 @@ fn position_popover(cell_key: NodeKey, e: &Event<MountedData>) {
     }
     let html = pop.dyn_ref::<web_sys::HtmlElement>().map(|h| h.style());
     if let Some(style) = html {
-        let _ = style.set_property("top", &format!("{}px", top));
-        let _ = style.set_property("left", &format!("{}px", left));
+        let _ = style.set_property("top", &format!("{top}px"));
+        let _ = style.set_property("left", &format!("{left}px"));
         let _ = style.set_property("visibility", "visible");
     }
 }
@@ -1616,7 +1616,7 @@ mod wasm {
     }
 
     fn find_keyed(root: &web_sys::Element, key: NodeKey) -> Option<web_sys::Element> {
-        let selector = format!("[data-key=\"{}\"]", key);
+        let selector = format!("[data-key=\"{key}\"]");
         root.query_selector(&selector).ok().flatten()
     }
 }
