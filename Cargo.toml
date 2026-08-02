@@ -25,7 +25,9 @@ dioxus = { version = "=0.8.0-alpha.1", default-features = false, features = [
 [dependencies]
 dioxus = { workspace = true }
 pulldown-cmark = "0.13"
+js-sys = "0.3"
 web-sys = { version = "0.3", features = [
+    "AbstractRange",
     "ClipboardEvent",
     "DataTransfer",
     "Document",
@@ -42,6 +44,7 @@ web-sys = { version = "0.3", features = [
     "Node",
     "NodeList",
     "Selection",
+    "StaticRange",
     "Window",
     "CssStyleDeclaration",
     "console",
