@@ -105,8 +105,8 @@ impl EditorConfig {
         }
     }
 
-    pub fn with_plugin(mut self, plugin: Box<dyn Plugin>) -> Self {
-        self.plugins.push(plugin);
+    pub fn with_plugin(mut self, plugin: impl Plugin + 'static) -> Self {
+        self.plugins.push(Box::new(plugin));
         self
     }
 
