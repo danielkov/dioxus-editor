@@ -241,20 +241,20 @@ fn write_table(doc: &Doc, table: &crate::model::ElementNode, schema: &Schema, ou
         out.push('|');
         for col in 0..col_count {
             out.push(' ');
-            if let Some(&cell_key) = row.children.get(col) {
-                if let Some(cell) = doc.get_element(cell_key) {
-                    let mut cell_out = String::new();
-                    write_inlines(doc, &cell.children, schema, &mut cell_out);
-                    // Pipes inside a cell must be escaped; newlines flatten
-                    // to a `<br>` so the body stays on one line — markdown
-                    // tables can't span multiple lines.
-                    let escaped = cell_out.replace('\\', "\\\\").replace('|', "\\|");
-                    let flat: String = escaped
-                        .chars()
-                        .map(|c| if c == '\n' { ' ' } else { c })
-                        .collect();
-                    out.push_str(&flat);
-                }
+            if let Some(&cell_key) = row.children.get(col)
+                && let Some(cell) = doc.get_element(cell_key)
+            {
+                let mut cell_out = String::new();
+                write_inlines(doc, &cell.children, schema, &mut cell_out);
+                // Pipes inside a cell must be escaped; newlines flatten
+                // to a `<br>` so the body stays on one line — markdown
+                // tables can't span multiple lines.
+                let escaped = cell_out.replace('\\', "\\\\").replace('|', "\\|");
+                let flat: String = escaped
+                    .chars()
+                    .map(|c| if c == '\n' { ' ' } else { c })
+                    .collect();
+                out.push_str(&flat);
             }
             out.push(' ');
             out.push('|');

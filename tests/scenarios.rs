@@ -8,14 +8,14 @@
 
 use std::rc::Rc;
 
+use dioxus_editor::FormatBits;
+use dioxus_editor::Plugin;
 use dioxus_editor::commands::{
     delete_backward, delete_range_transaction, delete_to_block_start, insert_text, split_block,
     toggle_blockquote, toggle_bold, toggle_bullet_list, toggle_code, toggle_code_block,
     toggle_heading, toggle_italic, toggle_ordered_list, toggle_strike,
 };
 use dioxus_editor::plugins::{History, MarkdownShortcuts};
-use dioxus_editor::FormatBits;
-use dioxus_editor::Plugin;
 use dioxus_editor::*;
 
 /// Mini test harness: tracks state, lets you `type`, `enter`, `backspace`,

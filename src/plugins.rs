@@ -326,15 +326,16 @@ impl Plugin for MarkdownShortcuts {
         // the pattern (`# `, `> `, `- `, `1. ` …). Check those first since
         // they consume an entire prefix and we'd rather not waste cycles
         // looking for an inline match in the same span.
-        if inserted_char == " " {
-            if let Some(tr) = apply_block_rule(&new.doc, text_key, caret) {
-                return Some(tr);
-            }
+        if inserted_char == " "
+            && let Some(tr) = apply_block_rule(&new.doc, text_key, caret)
+        {
+            return Some(tr);
         }
-        if inserted_char == ")" && new.schema.has_decorator("link") {
-            if let Some(tr) = apply_link_rule(&new.doc, text_key, caret) {
-                return Some(tr);
-            }
+        if inserted_char == ")"
+            && new.schema.has_decorator("link")
+            && let Some(tr) = apply_link_rule(&new.doc, text_key, caret)
+        {
+            return Some(tr);
         }
         for rule in &self.inline_rules {
             if let Some(tr) = apply_inline_rule(&new.doc, text_key, caret, rule) {
@@ -351,10 +352,10 @@ impl Plugin for MarkdownShortcuts {
 fn containing_block_is_raw(doc: &Doc, text_key: NodeKey) -> bool {
     let mut cur = text_key;
     while let Some(parent) = doc.parent(cur) {
-        if let Some(e) = doc.get_element(parent) {
-            if e.kind == "code_block" {
-                return true;
-            }
+        if let Some(e) = doc.get_element(parent)
+            && e.kind == "code_block"
+        {
+            return true;
         }
         if parent == doc.root {
             return false;

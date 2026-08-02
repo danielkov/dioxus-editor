@@ -430,11 +430,13 @@ fn delete_row_on_single_row_table_deletes_table() {
     let tr = dioxus_editor::commands::delete_row(&state).unwrap();
     let new = state.apply(tr).unwrap();
     // No table remains.
-    assert!(new.doc.root_node().children.iter().all(|&k| new
-        .doc
-        .get_element(k)
-        .map(|e| e.kind.as_str())
-        != Some("table")));
+    assert!(
+        new.doc.root_node().children.iter().all(|&k| new
+            .doc
+            .get_element(k)
+            .map(|e| e.kind.as_str())
+            != Some("table"))
+    );
 }
 
 // -- Column insertion / removal -----------------------------------------
@@ -511,11 +513,13 @@ fn delete_column_on_single_column_table_deletes_table() {
     let state = state_in_table_cell(2, 1, (0, 0));
     let tr = dioxus_editor::commands::delete_column(&state).unwrap();
     let new = state.apply(tr).unwrap();
-    assert!(new.doc.root_node().children.iter().all(|&k| new
-        .doc
-        .get_element(k)
-        .map(|e| e.kind.as_str())
-        != Some("table")));
+    assert!(
+        new.doc.root_node().children.iter().all(|&k| new
+            .doc
+            .get_element(k)
+            .map(|e| e.kind.as_str())
+            != Some("table"))
+    );
 }
 
 #[test]
@@ -524,11 +528,13 @@ fn delete_table_removes_the_table_and_leaves_paragraph_in_its_place() {
     let tr = dioxus_editor::commands::delete_table(&state).unwrap();
     let new = state.apply(tr).unwrap();
     // No table; caret lands on the replacement paragraph.
-    assert!(new.doc.root_node().children.iter().all(|&k| new
-        .doc
-        .get_element(k)
-        .map(|e| e.kind.as_str())
-        != Some("table")));
+    assert!(
+        new.doc.root_node().children.iter().all(|&k| new
+            .doc
+            .get_element(k)
+            .map(|e| e.kind.as_str())
+            != Some("table"))
+    );
 }
 
 // -- Content preservation ------------------------------------------------
@@ -1202,10 +1208,12 @@ fn markdown_round_trip_keeps_literal_commonmark_markers_plain() {
         .map(|key| reparsed.get_text(*key).unwrap().text.as_str())
         .collect();
     assert_eq!(text, literal);
-    assert!(paragraph
-        .children
-        .iter()
-        .all(|key| reparsed.get_text(*key).unwrap().format == FormatBits::NONE));
+    assert!(
+        paragraph
+            .children
+            .iter()
+            .all(|key| reparsed.get_text(*key).unwrap().format == FormatBits::NONE)
+    );
 }
 
 #[test]
@@ -1242,10 +1250,11 @@ fn markdown_image_requires_registered_schema_kind() {
         "before ![safe alt](javascript:bad) after",
         &Schema::new(),
     );
-    assert!(!doc
-        .nodes()
-        .values()
-        .any(|node| matches!(node, Node::Decorator(_))));
+    assert!(
+        !doc.nodes()
+            .values()
+            .any(|node| matches!(node, Node::Decorator(_)))
+    );
     let paragraph = doc.get_element(doc.root_node().children[0]).unwrap();
     let text: String = paragraph
         .children
