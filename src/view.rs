@@ -1200,7 +1200,7 @@ mod wasm {
             }
             let input_type = e.input_type();
             match input_type.as_str() {
-                "insertText" | "insertReplacementText" | "insertFromYank" | "insertFromDrop" => {
+                "insertText" | "insertFromYank" | "insertFromDrop" => {
                     if let Some(text) = e.data() {
                         if !text.is_empty() {
                             e.prevent_default();
@@ -1213,6 +1213,32 @@ mod wasm {
                             // Some browsers omit `data` for empty text;
                             // still preventDefault to keep the DOM clean.
                             e.prevent_default();
+                        }
+                    }
+                }
+                "insertReplacementText" => {
+                    // Autocorrect / spellcheck replacement. The replaced
+                    // word need not be the current selection — the event's
+                    // target range names it — and Safari delivers the
+                    // replacement through the event's data transfer rather
+                    // than `data`.
+                    e.prevent_default();
+                    let text = e.data().or_else(|| {
+                        e.data_transfer()
+                            .and_then(|dt| dt.get_data("text/plain").ok())
+                    });
+                    if let Some(text) = text
+                        && !text.is_empty()
+                    {
+                        if let Some(sel) = first_target_range(&e)
+                            .and_then(|range| static_range_to_selection(&handle_bi, &range))
+                        {
+                            handle_bi.set_selection(sel);
+                        }
+                        if let Some(tr) =
+                            crate::commands::insert_text(&handle_bi.read_state(), &text)
+                        {
+                            handle_bi.report_internal(handle_bi.dispatch(tr));
                         }
                     }
                 }
@@ -1359,6 +1385,13 @@ mod wasm {
             // contenteditable directly, then mirror the delete into the
             // model so DOM and model stay in lockstep.
             e.prevent_default();
+            // The document-level `selectionchange` mirror is async, so the
+            // model selection can lag the DOM selection the user is
+            // cutting. Re-read the DOM range so the delete covers exactly
+            // what the clipboard received.
+            if let Some(sel) = read_dom_selection(&handle_cut) {
+                handle_cut.set_selection(sel);
+            }
             if let Some(tr) = crate::commands::delete_backward(&handle_cut.read_state()) {
                 handle_cut.report_internal(handle_cut.dispatch(tr));
             }
@@ -1420,6 +1453,32 @@ mod wasm {
             anchor: anchor_point,
             focus: focus_point,
         })
+    }
+
+    /// First entry of `InputEvent.getTargetRanges()`, if any. Only trusted
+    /// events carry target ranges; synthetic ones yield an empty list.
+    fn first_target_range(ev: &web_sys::InputEvent) -> Option<web_sys::StaticRange> {
+        ev.get_target_ranges()
+            .get(0)
+            .dyn_into::<web_sys::StaticRange>()
+            .ok()
+    }
+
+    /// Map a `StaticRange` onto a model selection. `None` when an endpoint
+    /// sits outside the editor or has no keyed ancestor.
+    fn static_range_to_selection(
+        handle: &EditorHandle,
+        range: &web_sys::StaticRange,
+    ) -> Option<Selection> {
+        let root = editor_root(handle)?;
+        let start = range.start_container();
+        let end = range.end_container();
+        if !node_in_root(&start, &root) || !node_in_root(&end, &root) {
+            return None;
+        }
+        let anchor = point_from_dom(handle, &start, range.start_offset() as usize)?;
+        let focus = point_from_dom(handle, &end, range.end_offset() as usize)?;
+        Some(Selection::Range { anchor, focus })
     }
 
     fn node_in_root(node: &web_sys::Node, root: &web_sys::Element) -> bool {
