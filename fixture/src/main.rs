@@ -155,10 +155,10 @@ fn App() -> Element {
                 },
             );
         EditorConfig::new(schema)
-            .with_plugin(Box::new(DefaultKeymap))
-            .with_plugin(Box::new(History::new()))
-            .with_plugin(Box::new(MarkdownShortcuts::new()))
-            .with_plugin(Box::new(FailingPlugin))
+            .with_plugin(DefaultKeymap)
+            .with_plugin(History::new())
+            .with_plugin(MarkdownShortcuts::new())
+            .with_plugin(FailingPlugin)
     });
     let mut submit_mode = use_signal(|| false);
     let mut submit_count = use_signal(|| 0_u32);

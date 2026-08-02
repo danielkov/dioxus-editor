@@ -43,9 +43,9 @@ use dioxus_editor::{plugins, use_editor, EditorConfig, EditorView, Schema};
 fn App() -> Element {
     let editor = use_editor(|| {
         EditorConfig::new(Schema::new())
-            .with_plugin(Box::new(plugins::DefaultKeymap))
-            .with_plugin(Box::new(plugins::History::new()))
-            .with_plugin(Box::new(plugins::MarkdownShortcuts::new()))
+            .with_plugin(plugins::DefaultKeymap)
+            .with_plugin(plugins::History::new())
+            .with_plugin(plugins::MarkdownShortcuts::new())
     });
 
     rsx! { EditorView { editor, aria_label: "Article body" } }

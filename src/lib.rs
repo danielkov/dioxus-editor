@@ -12,8 +12,8 @@
 //! fn Editor() -> Element {
 //!     let editor = use_editor(|| {
 //!         EditorConfig::new(Schema::new())
-//!             .with_plugin(Box::new(plugins::DefaultKeymap))
-//!             .with_plugin(Box::new(plugins::History::new()))
+//!             .with_plugin(plugins::DefaultKeymap)
+//!             .with_plugin(plugins::History::new())
 //!     });
 //!
 //!     rsx! { EditorView { editor } }

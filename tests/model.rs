@@ -772,14 +772,9 @@ fn dispatch_test_app() -> dioxus::prelude::Element {
 
     let handle = use_editor(|| {
         DISPATCH_PLUGINS.with(|plugins| {
-            plugins
-                .borrow_mut()
-                .take()
-                .expect("plugins configured")
-                .into_iter()
-                .fold(EditorConfig::new(Schema::new()), |config, plugin| {
-                    config.with_plugin(plugin)
-                })
+            let mut config = EditorConfig::new(Schema::new());
+            config.plugins = plugins.borrow_mut().take().expect("plugins configured");
+            config
         })
     });
     if DISPATCH_RESULT.with(|result| result.borrow().is_none()) {
@@ -849,9 +844,9 @@ fn handle_dispatches_through_plugin_pipeline() {
     let mut dom = VirtualDom::new(|| {
         let handle = use_editor(|| {
             EditorConfig::new(Schema::new())
-                .with_plugin(Box::new(ep::DefaultKeymap))
-                .with_plugin(Box::new(ep::History::new()))
-                .with_plugin(Box::new(ep::MarkdownShortcuts::new()))
+                .with_plugin(ep::DefaultKeymap)
+                .with_plugin(ep::History::new())
+                .with_plugin(ep::MarkdownShortcuts::new())
         });
         // Provide handle to a context so a future render can read it.
         use_context_provider(|| handle.clone());
