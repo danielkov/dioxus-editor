@@ -15,7 +15,7 @@
 //! formats. This crate does not ship CSS — see `docs/styling.md` for the
 //! full class reference and the required host rules.
 
-use dioxus::html::{Key, Modifiers};
+use dioxus::html::{BeforeInputData, InputType, Key, Modifiers};
 use dioxus::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
@@ -34,10 +34,6 @@ pub fn EditorView(
     #[props(default)] on_error: Option<EventHandler<DispatchError>>,
 ) -> Element {
     editor.set_error_handler(on_error);
-    #[cfg(target_arch = "wasm32")]
-    {
-        editor.dom_binding().borrow_mut().on_submit = on_submit;
-    }
     let state_sig = editor.state_signal();
     let state = state_sig.read().clone();
     let doc = state.doc.clone();
@@ -49,8 +45,9 @@ pub fn EditorView(
     let editor_for_focus = editor.clone();
     let editor_for_compose_start = editor.clone();
     let editor_for_compose_end = editor.clone();
-    #[cfg(target_arch = "wasm32")]
     let editor_for_beforeinput = editor.clone();
+    let editor_for_cut = editor.clone();
+    let editor_for_mount = editor.clone();
     let _ = &editor_for_compose_start;
     // Provide the handle through context so nested DecoratorSlot
     // components can resolve schema renderers.
@@ -91,6 +88,19 @@ pub fn EditorView(
                         editor_for_focus.set_selection(Selection::caret(Point { key, offset: off, kind }));
                     }
             },
+            // `beforeinput` is the canonical channel for ALL text input —
+            // typed characters (including non-BMP / emoji), IME accept,
+            // autocorrect, paste, form-style autofill.
+            onbeforeinput: move |e: Event<BeforeInputData>| {
+                handle_beforeinput(&editor_for_beforeinput, &on_submit, e);
+            },
+            // `beforeinput`'s `deleteByCut` mirror can't reach the
+            // clipboard — the cut handler writes the selection to the
+            // event's data transfer, suppresses the browser's DOM
+            // mutation, and routes the delete through the model.
+            oncut: move |e: Event<ClipboardData>| {
+                handle_cut(&editor_for_cut, e);
+            },
             oncompositionstart: move |_| {
                 #[cfg(target_arch = "wasm32")]
                 wasm::set_composing(true);
@@ -122,10 +132,10 @@ pub fn EditorView(
             },
             onmounted: move |e| {
                 #[cfg(target_arch = "wasm32")]
-                wasm::attach_beforeinput(&editor_for_beforeinput, e.data());
+                wasm::bind_root(&editor_for_mount, e.data());
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    let _ = e;
+                    let _ = (&editor_for_mount, e);
                 }
             },
 
@@ -950,6 +960,160 @@ fn handle_paste(editor: &EditorHandle, e: Event<ClipboardData>) {
     }
 }
 
+/// Route a cancelable `beforeinput` mutation through the model. Every
+/// arm ends in `prevent_default` — the model owns all content changes,
+/// the browser never edits the contenteditable directly. Composition is
+/// the one exception: the IME owns the DOM until `compositionend`.
+fn handle_beforeinput(
+    editor: &EditorHandle,
+    on_submit: &Option<EventHandler<Doc>>,
+    e: Event<BeforeInputData>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    if wasm::is_composing(editor) {
+        return;
+    }
+    match e.data.input_type() {
+        InputType::InsertText
+        | InputType::InsertReplacementText
+        | InputType::InsertFromYank
+        | InputType::InsertFromDrop => {
+            if let Some(text) = e.data.data() {
+                e.prevent_default();
+                if !text.is_empty()
+                    && let Some(tr) = crate::commands::insert_text(&editor.read_state(), &text)
+                {
+                    editor.report_internal(editor.dispatch(tr));
+                }
+            }
+        }
+        InputType::InsertParagraph => {
+            e.prevent_default();
+            if let Some(on_submit) = on_submit {
+                on_submit.call(editor.doc());
+            } else if let Some(tr) = crate::commands::split_block(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::InsertLineBreak => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::split_block(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteContentBackward => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_backward(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteContentForward => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_forward(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteByCut => {
+            // Cut is fully serviced by the `oncut` handler (clipboard
+            // write + model delete, with preventDefault). A browser that
+            // still fires this mirror must not delete again — just keep
+            // the DOM from mutating.
+            e.prevent_default();
+        }
+        InputType::DeleteByDrag => {
+            // Move-source half of an internal drag: remove the dragged
+            // range from the model.
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_backward(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteWordBackward => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_word_backward(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteWordForward => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_word_forward(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteSoftLineBackward | InputType::DeleteHardLineBackward => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_to_block_start(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::DeleteSoftLineForward | InputType::DeleteHardLineForward => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::delete_to_block_end(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::FormatBold => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::toggle_bold(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::FormatItalic => {
+            e.prevent_default();
+            if let Some(tr) = crate::commands::toggle_italic(&editor.read_state()) {
+                editor.report_internal(editor.dispatch(tr));
+            }
+        }
+        InputType::InsertFromPaste | InputType::InsertFromPasteAsQuotation => {
+            // Paste is handled by the `onpaste` handler (which routes
+            // text vs. files). The `beforeinput` mirror still fires here;
+            // preventDefault so the browser doesn't double-insert.
+            e.prevent_default();
+        }
+        _ => {
+            // Unknown inputType — for safety, prevent the default so the
+            // browser can't quietly mutate the DOM behind the model's
+            // back.
+            e.prevent_default();
+        }
+    }
+}
+
+/// Cmd/Ctrl+X: write the selection text to the clipboard, keep the
+/// browser from mutating the contenteditable, and delete the range
+/// through the model so DOM and model stay in lockstep.
+fn handle_cut(editor: &EditorHandle, e: Event<ClipboardData>) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        if wasm::is_composing(editor) {
+            return;
+        }
+        let selected = web_sys::window()
+            .and_then(|win| win.get_selection().ok().flatten())
+            .map(|s| s.to_string().as_string().unwrap_or_default())
+            .unwrap_or_default();
+        if selected.is_empty() {
+            return;
+        }
+        let _ = e.data.data_transfer().set_data("text/plain", &selected);
+        e.prevent_default();
+        // The document-level `selectionchange` mirror is async, so the
+        // model selection can lag the DOM selection the user is cutting.
+        // Re-read the DOM range so the delete covers exactly what the
+        // clipboard received.
+        if let Some(sel) = wasm::read_dom_selection(editor) {
+            editor.set_selection(sel);
+        }
+        if let Some(tr) = crate::commands::delete_backward(&editor.read_state()) {
+            editor.report_internal(editor.dispatch(tr));
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = (editor, e);
+    }
+}
+
 fn handle_drop(editor: &EditorHandle, e: Event<DragData>) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -1081,10 +1245,7 @@ fn position_popover(cell_key: NodeKey, e: &Event<MountedData>) {
 #[derive(Default)]
 pub(crate) struct DomBinding {
     root: Option<web_sys::Element>,
-    beforeinput_listener: Option<wasm::BeforeInputListener>,
-    cut_listener: Option<wasm::CutListener>,
     sel_listener: Option<wasm::SelListener>,
-    on_submit: Option<EventHandler<Doc>>,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1109,33 +1270,6 @@ mod wasm {
 
     thread_local! {
         static COMPOSING: Cell<bool> = const { Cell::new(false) };
-    }
-
-    pub struct BeforeInputListener {
-        element: web_sys::Element,
-        closure: Closure<dyn FnMut(web_sys::InputEvent)>,
-    }
-
-    impl Drop for BeforeInputListener {
-        fn drop(&mut self) {
-            let _ = self.element.remove_event_listener_with_callback(
-                "beforeinput",
-                self.closure.as_ref().unchecked_ref(),
-            );
-        }
-    }
-
-    pub struct CutListener {
-        element: web_sys::Element,
-        closure: Closure<dyn FnMut(web_sys::ClipboardEvent)>,
-    }
-
-    impl Drop for CutListener {
-        fn drop(&mut self) {
-            let _ = self
-                .element
-                .remove_event_listener_with_callback("cut", self.closure.as_ref().unchecked_ref());
-        }
     }
 
     pub struct SelListener {
@@ -1165,197 +1299,16 @@ mod wasm {
         COMPOSING.with(|c| c.set(v));
     }
 
-    /// Attach `beforeinput` to the editor element on mount. `beforeinput`
-    /// is the canonical channel for ALL text input — typed characters
-    /// (including non-BMP / emoji), IME accept, autocorrect, paste,
-    /// form-style autofill. We attach directly because `beforeinput` needs
-    /// access to browser-specific `InputEvent::input_type`. The closure is
-    /// retained in the per-editor DOM binding and removed when the binding is
-    /// replaced or dropped.
-    pub fn attach_beforeinput(handle: &EditorHandle, data: Rc<MountedData>) {
+    /// Store the mounted editor element as the selection-mapping root and
+    /// install the document-level `selectionchange` listener. Input events
+    /// themselves arrive through the `onbeforeinput` / `oncut` attributes
+    /// on the editor element.
+    pub fn bind_root(handle: &EditorHandle, data: Rc<MountedData>) {
         let Some(elem) = data.downcast::<web_sys::Element>() else {
             return;
         };
-        let elem: web_sys::Element = elem.clone();
         handle.dom_binding().borrow_mut().root = Some(elem.clone());
-
-        let handle_bi = handle.clone();
-        let on_beforeinput = Closure::wrap(Box::new(move |e: web_sys::InputEvent| {
-            // Composition is owned by the IME — let it run its course;
-            // we'll reflect the final text via the compositionend handler.
-            if COMPOSING.with(|c| c.get()) {
-                return;
-            }
-            let input_type = e.input_type();
-            match input_type.as_str() {
-                "insertText" | "insertReplacementText" | "insertFromYank" | "insertFromDrop" => {
-                    if let Some(text) = e.data() {
-                        if !text.is_empty() {
-                            e.prevent_default();
-                            if let Some(tr) =
-                                crate::commands::insert_text(&handle_bi.read_state(), &text)
-                            {
-                                handle_bi.report_internal(handle_bi.dispatch(tr));
-                            }
-                        } else {
-                            // Some browsers omit `data` for empty text;
-                            // still preventDefault to keep the DOM clean.
-                            e.prevent_default();
-                        }
-                    }
-                }
-                "insertParagraph" => {
-                    e.prevent_default();
-                    let on_submit = handle_bi.dom_binding().borrow().on_submit;
-                    if let Some(on_submit) = on_submit {
-                        on_submit.call(handle_bi.doc());
-                    } else if let Some(tr) = crate::commands::split_block(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "insertLineBreak" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::split_block(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteContentBackward" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::delete_backward(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteContentForward" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::delete_forward(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteByCut" => {
-                    // Cut is fully serviced by the native `cut` listener
-                    // (clipboard write + model delete, with preventDefault).
-                    // A browser that still fires this mirror must not delete
-                    // again — just keep the DOM from mutating.
-                    e.prevent_default();
-                }
-                "deleteByDrag" => {
-                    // Move-source half of an internal drag: remove the
-                    // dragged range from the model.
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::delete_backward(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteWordBackward" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::delete_word_backward(&handle_bi.read_state())
-                    {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteWordForward" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::delete_word_forward(&handle_bi.read_state())
-                    {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteSoftLineBackward" | "deleteHardLineBackward" => {
-                    e.prevent_default();
-                    if let Some(tr) =
-                        crate::commands::delete_to_block_start(&handle_bi.read_state())
-                    {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "deleteSoftLineForward" | "deleteHardLineForward" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::delete_to_block_end(&handle_bi.read_state())
-                    {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "formatBold" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::toggle_bold(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "formatItalic" => {
-                    e.prevent_default();
-                    if let Some(tr) = crate::commands::toggle_italic(&handle_bi.read_state()) {
-                        handle_bi.report_internal(handle_bi.dispatch(tr));
-                    }
-                }
-                "insertFromPaste" | "insertFromPasteAsQuotation" => {
-                    // Paste is handled by the Dioxus `onpaste` handler on
-                    // the editor (which routes text vs. files). The
-                    // `beforeinput` mirror still fires here; preventDefault
-                    // so the browser doesn't double-insert.
-                    e.prevent_default();
-                }
-                _ => {
-                    // Unknown inputType — for safety, prevent the default
-                    // so the browser can't quietly mutate the DOM behind
-                    // the model's back.
-                    e.prevent_default();
-                }
-            }
-        }) as Box<dyn FnMut(_)>);
-        let _ = elem.add_event_listener_with_callback(
-            "beforeinput",
-            on_beforeinput.as_ref().unchecked_ref(),
-        );
-        handle.dom_binding().borrow_mut().beforeinput_listener = Some(BeforeInputListener {
-            element: elem.clone(),
-            closure: on_beforeinput,
-        });
-
-        attach_cut(handle, &elem);
         install_selectionchange_listener(handle);
-    }
-
-    /// Wire up Cmd/Ctrl+X. The `beforeinput` `deleteByCut` mirror can't reach
-    /// the clipboard, so we attach a native `cut` listener: copy the current
-    /// selection text onto the clipboard, suppress the browser's own DOM
-    /// mutation, then remove
-    /// the selected range through the model's delete path. Without this,
-    /// every cut hit the `beforeinput` catch-all that only preventDefaulted
-    /// — so Cmd+X did nothing.
-    fn attach_cut(handle: &EditorHandle, elem: &web_sys::Element) {
-        let handle_cut = handle.clone();
-        let on_cut = Closure::wrap(Box::new(move |e: web_sys::ClipboardEvent| {
-            if COMPOSING.with(|c| c.get()) {
-                return;
-            }
-            let Some(win) = web_sys::window() else {
-                return;
-            };
-            let selected = win
-                .get_selection()
-                .ok()
-                .flatten()
-                .map(|s| s.to_string().as_string().unwrap_or_default())
-                .unwrap_or_default();
-            if selected.is_empty() {
-                return;
-            }
-            if let Some(cb) = e.clipboard_data() {
-                let _ = cb.set_data("text/plain", &selected);
-            }
-            // Own the mutation: stop the browser from editing the
-            // contenteditable directly, then mirror the delete into the
-            // model so DOM and model stay in lockstep.
-            e.prevent_default();
-            if let Some(tr) = crate::commands::delete_backward(&handle_cut.read_state()) {
-                handle_cut.report_internal(handle_cut.dispatch(tr));
-            }
-        }) as Box<dyn FnMut(_)>);
-        let _ = elem.add_event_listener_with_callback("cut", on_cut.as_ref().unchecked_ref());
-        handle.dom_binding().borrow_mut().cut_listener = Some(CutListener {
-            element: elem.clone(),
-            closure: on_cut,
-        });
     }
 
     /// The browser's `selectionchange` event fires on `document` only —
